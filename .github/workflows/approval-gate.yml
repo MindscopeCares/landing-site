@@ -1,0 +1,52 @@
+# Approval gate: the PR is green only once a required reviewer approves.
+# REQUIRED_REVIEWERS (repo/org variable, comma-separated; default AJEgwu) are
+# the people whose approval is mandatory. Anyone can review and LGTM; when a
+# required reviewer authors the PR, any other member's approval counts
+# (GitHub doesn't allow approving your own PR).
+name: Approval gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed, edited]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  approval-gate:
+    name: approval-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check approvals
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUIRED: ${{ vars.REQUIRED_REVIEWERS || 'AJEgwu' }}
+          PR: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, sys
+          repo = os.environ["GITHUB_REPOSITORY"]
+          required = {r.strip().lower() for r in os.environ["REQUIRED"].split(",") if r.strip()}
+          author = os.environ["AUTHOR"].lower()
+          reviews = json.loads(subprocess.check_output(
+              ["gh", "api", "--paginate", f"repos/{repo}/pulls/{os.environ['PR']}/reviews"], text=True))
+          latest = {}
+          for r in reviews:
+              if r["state"] in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED"):
+                  latest[r["user"]["login"].lower()] = r["state"]
+          approvers = {u for u, s in latest.items() if s == "APPROVED" and u != author}
+          blockers = sorted(u for u, s in latest.items() if s == "CHANGES_REQUESTED")
+          if author in required:
+              ok, need = bool(approvers), "one approval from another team member"
+          else:
+              ok, need = bool(approvers & required), "approval from " + " or ".join("@" + r for r in sorted(required))
+          print(f"approvals: {sorted(approvers) or 'none'}; changes requested by: {blockers or 'nobody'}")
+          if blockers:
+              print(f"::error::Changes requested by {', '.join(blockers)}"); sys.exit(1)
+          if not ok:
+              print(f"::error::Waiting for {need}"); sys.exit(1)
+          print("approved")
+          PY
