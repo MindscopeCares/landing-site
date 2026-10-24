@@ -13,6 +13,7 @@ on:
 
 permissions:
   pull-requests: read
+  actions: write # to re-run the pre-approval check once approved
 
 jobs:
   approval-gate:
@@ -50,3 +51,15 @@ jobs:
               print(f"::error::Waiting for {need}"); sys.exit(1)
           print("approved")
           PY
+      # GitHub shows the run from before the approval (red) next to the one
+      # triggered by the review (green). Re-run the stale one so the PR shows
+      # a single green approval-gate.
+      - name: Refresh the pre-approval run
+        if: github.event_name == 'pull_request_review'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow approval-gate.yml --commit "$HEAD_SHA" \
+            --event pull_request --status failure --json databaseId -q '.[].databaseId' |
+            while read -r id; do gh run rerun "$id" --repo "$GITHUB_REPOSITORY" || true; done
