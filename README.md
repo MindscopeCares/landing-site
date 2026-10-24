@@ -1,6 +1,6 @@
 # MindScope landing site
 
-The public site at **https://mindscopecares.com** (`www` redirects to it).
+The public site at **https://mindscopecares.com** and **https://www.mindscopecares.com** (both serve the site).
 It's a React + Vite single-page app in `website/`, served by nginx on Google
 Cloud Run (service `mindscope-landing`, project `mindscope-prod`).
 
@@ -32,7 +32,7 @@ Roll back: Actions → Deploy → re-run an earlier successful run, or
 
 ```text
 website/          the app (src/, public/, vite.config.ts)
-deploy/nginx.conf static serving, SPA fallback, www → apex redirect, /health
+deploy/nginx.conf static serving, SPA fallback, /health
 Dockerfile        build + nginx image
 .github/          CI, deploy, previews, approval gate
 ```
