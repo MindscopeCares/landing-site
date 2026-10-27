@@ -55,6 +55,7 @@ jobs:
           curl -fsS "$url/health"
           [ "$(curl -fsS "$url/version.txt")" = "${GITHUB_SHA::7}" ]
           curl -fsS -o /dev/null "$url/"
+          curl -fsSI "$url/" | grep -qi "^x-frame-options: DENY"
       - name: Go live
         run: |
           gcloud run services update-traffic "${{ vars.CLOUD_RUN_SERVICE }}" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" \
