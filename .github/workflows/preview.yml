@@ -37,9 +37,9 @@ jobs:
       - name: Deploy tagged revision
         id: deploy
         run: |
-          gcloud run deploy "${{ vars.CLOUD_RUN_SERVICE }}" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" \
+          gcloud run deploy "${{ vars.STAGING_SERVICE }}" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" \
             --image "$IMAGE:$TAG" --no-traffic --tag "$TAG" --revision-suffix "$TAG-${GITHUB_SHA::7}-${GITHUB_RUN_ATTEMPT}" --quiet
-          url=$(gcloud run services describe "${{ vars.CLOUD_RUN_SERVICE }}" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --format=json |
+          url=$(gcloud run services describe "${{ vars.STAGING_SERVICE }}" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --format=json |
             python3 -c "import json,sys; print(next(t['url'] for t in json.load(sys.stdin)['status']['traffic'] if t.get('tag')=='$TAG'))")
           echo "url=$url" >> "$GITHUB_OUTPUT"
       - name: Comment preview URL
@@ -59,4 +59,4 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SA }}
       - uses: google-github-actions/setup-gcloud@v3
-      - run: gcloud run services update-traffic "${{ vars.CLOUD_RUN_SERVICE }}" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --remove-tags "$TAG" --quiet || true
+      - run: gcloud run services update-traffic "${{ vars.STAGING_SERVICE }}" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --remove-tags "$TAG" --quiet || true

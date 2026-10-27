@@ -1,0 +1,144 @@
+# Production release: promote the image already built and verified on staging
+# (by commit SHA) through a canary: 0% (tagged, probed) -> 10% -> 50% -> 100%.
+# Each stage soaks and runs scripts/canary_gate.py; any failure sends 100% of
+# traffic back to the previous stable revision automatically.
+#
+# Triggered by publishing a GitHub Release (vYYYY.MM.DD[.N]) — manually, or by
+# the weekly release train — or by hand via "Run workflow".
+name: Release to production
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (or commit SHA) on main to ship
+        required: true
+      soak_minutes:
+        description: Minutes to soak at each canary stage
+        default: "15"
+      skip_canary:
+        description: EMERGENCY ONLY — go straight to 100% (still probed)
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: read
+  checks: read
+
+env:
+  IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.AR_REPO }}/mindscope-landing
+  REF: ${{ inputs.tag }}
+  SOAK: ${{ inputs.soak_minutes || '15' }}
+  VERSION_PATH: '/version.txt'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment:
+      name: production # protection rule: requires an approving reviewer
+      url: https://mindscopecares.com
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # Free-plan stand-in for environment reviewers: only named release
+      # managers (repo variable RELEASE_MANAGERS, comma-separated logins) or
+      # the scheduled release train may ship to production.
+      - name: Authorize releaser
+        env:
+          MANAGERS: ${{ vars.RELEASE_MANAGERS }}
+          ACTOR: ${{ github.triggering_actor }}
+        run: |
+          echo ",$MANAGERS," | tr -d ' ' | grep -qi ",$ACTOR," \
+            || { echo "::error::@$ACTOR is not a release manager (RELEASE_MANAGERS=$MANAGERS)"; exit 1; }
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Record current stable revision
+        run: |
+          stable=$(gcloud run services describe "${{ vars.CLOUD_RUN_SERVICE }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --format=json |
+            python3 -c 'import json,sys; t=json.load(sys.stdin)["status"]["traffic"]; print(max(t,key=lambda x:x.get("percent",0))["revisionName"])')
+          echo "STABLE=$stable" >> "$GITHUB_ENV"
+          baseline=$(gcloud run revisions describe "$stable" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --format='value(metadata.labels.commit)')
+          echo "RELEASE_BASELINE_SHA=${baseline:-${{ vars.RELEASE_BASELINE_SHA }}}" >> "$GITHUB_ENV"
+          echo "Stable revision: \`$stable\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Release policy (every commit reviewed, merged via PR, CI green)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUIRE_APPROVAL: true
+          REQUIRED_REVIEWERS: ${{ vars.REQUIRED_REVIEWERS || 'AJEgwu' }}
+        run: |
+          sha=$(git rev-parse --verify --end-of-options "$REF^{commit}")
+          git merge-base --is-ancestor "$sha" origin/main
+          python3 scripts/release_policy.py --target "$sha"
+          python3 scripts/require_staging.py "$sha"
+          echo "SHA=$sha" >> "$GITHUB_ENV"
+          echo "SHORT=${sha::7}" >> "$GITHUB_ENV"
+
+      - name: Resolve image
+        run: |
+          digest=$(gcloud artifacts docker images describe "$IMAGE:$SHA" --format='value(image_summary.digest)')
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || exit 1
+          stage_revision=$(gcloud run services describe "${{ vars.STAGING_SERVICE }}" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --format=json | python3 -c 'import json,sys; t=json.load(sys.stdin)["status"]["traffic"]; print(next(x["revisionName"] for x in t if x.get("percent")==100))')
+          staged=$(gcloud run revisions describe "$stage_revision" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --format='value(status.imageDigest)')
+          [ "$staged" = "$IMAGE@$digest" ] || { echo "Staging is not serving the target image digest"; exit 1; }
+          echo "PROMOTE_IMAGE=$IMAGE@$digest" >> "$GITHUB_ENV"
+
+      - name: Deploy canary (0% traffic)
+        run: |
+          gcloud run deploy "${{ vars.CLOUD_RUN_SERVICE }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" \
+            --image "$PROMOTE_IMAGE" --no-traffic --tag canary \
+            --update-labels "commit=$SHA,release=$(echo "$REF" | tr '.' '-' | tr -cd 'a-z0-9-' | cut -c1-60)" --quiet
+          desc=$(gcloud run services describe "${{ vars.CLOUD_RUN_SERVICE }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --format=json)
+          canary=$(echo "$desc" | python3 -c 'import json,sys; print(next(t["revisionName"] for t in json.load(sys.stdin)["status"]["traffic"] if t.get("tag")=="canary"))')
+          url=$(echo "$desc" | python3 -c 'import json,sys; print(next(t["url"] for t in json.load(sys.stdin)["status"]["traffic"] if t.get("tag")=="canary"))')
+          [ "$canary" != "$STABLE" ] || { echo "::error::canary revision equals stable; nothing to release"; exit 1; }
+          echo "CANARY=$canary" >> "$GITHUB_ENV"
+          echo "CANARY_URL=$url" >> "$GITHUB_ENV"
+          echo "Canary revision: \`$canary\` at $url" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "Stage 0: probe canary with no user traffic"
+        run: python3 scripts/canary_gate.py --project "${{ vars.GCP_PROJECT_ID }}" --service "${{ vars.CLOUD_RUN_SERVICE }}" --revision "$CANARY" --probe-url "$CANARY_URL" --expect-version "$SHORT" --minutes 2
+
+      - name: "Stage 1: 10% of users"
+        if: ${{ !inputs.skip_canary }}
+        run: |
+          gcloud run services update-traffic "${{ vars.CLOUD_RUN_SERVICE }}" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --to-revisions "$CANARY=10,$STABLE=90" --quiet
+          python3 scripts/canary_gate.py --project "${{ vars.GCP_PROJECT_ID }}" --service "${{ vars.CLOUD_RUN_SERVICE }}" --revision "$CANARY" --probe-url "$CANARY_URL" --expect-version "$SHORT" --minutes "$SOAK"
+
+      - name: "Stage 2: 50% of users"
+        if: ${{ !inputs.skip_canary }}
+        run: |
+          gcloud run services update-traffic "${{ vars.CLOUD_RUN_SERVICE }}" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --to-revisions "$CANARY=50,$STABLE=50" --quiet
+          python3 scripts/canary_gate.py --project "${{ vars.GCP_PROJECT_ID }}" --service "${{ vars.CLOUD_RUN_SERVICE }}" --revision "$CANARY" --probe-url "$CANARY_URL" --expect-version "$SHORT" --minutes "$SOAK"
+
+      - name: "Stage 3: 100%"
+        run: |
+          gcloud run services update-traffic "${{ vars.CLOUD_RUN_SERVICE }}" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --to-revisions "$CANARY=100" --quiet
+          python3 scripts/canary_gate.py --project "${{ vars.GCP_PROJECT_ID }}" --service "${{ vars.CLOUD_RUN_SERVICE }}" --revision "$CANARY" --probe-url "$CANARY_URL" --expect-version "$SHORT" --minutes 5
+          echo "### Released \`$REF\` ($SHORT) to 100%" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Roll back to stable
+        if: (failure() || cancelled()) && env.STABLE != '' && env.CANARY != ''
+        run: |
+          gcloud run services update-traffic "${{ vars.CLOUD_RUN_SERVICE }}" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --to-revisions "$STABLE=100" --quiet
+          echo "### Rolled back: 100% of traffic is on \`$STABLE\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clear canary tag
+        if: always() && env.CANARY != ''
+        run: gcloud run services update-traffic "${{ vars.CLOUD_RUN_SERVICE }}" --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --remove-tags canary --quiet || true
