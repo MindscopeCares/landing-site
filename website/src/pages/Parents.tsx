@@ -4,7 +4,7 @@ const tools = [
   {
     id: "research",
     label: "Disability Research, Made Simple",
-    title: "Research to PowerPoint",
+    title: "Research to Presentation",
     description:
       "Upload a disability research paper or paste a link. We'll convert it into a clear, plain language presentation you can share with teachers, doctors, or family members.",
     icon: (
@@ -31,7 +31,7 @@ const tools = [
     label: "Find Support Near You",
     title: "Facility Search",
     description:
-      "Enter your location and your child's area of need. We'll surface nearby facilities from our database that specialize in the behavioral or learning support your child requires.",
+      "Enter your location and your child's area of need. We'll surface nearby local support options that specialize in the behavioral or learning support your child requires.",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
         <path

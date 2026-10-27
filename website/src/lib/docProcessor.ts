@@ -1,3 +1,4 @@
+import { safeSlideDocument } from "./safeSlide.js";
 import { PDFParse } from "pdf-parse";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import mammoth from "mammoth";
@@ -41,6 +42,7 @@ export async function extractTextFromDocx(docxBytes: ArrayBuffer): Promise<strin
 
 /** Extract plain text from PDF, DOCX, or TXT. */
 export async function extractTextFromFile(filename: string, data: Uint8Array): Promise<string> {
+  if (data.byteLength > 10 * 1024 * 1024) throw new Error("Choose a file smaller than 10 MB.");
   const ext = fileExtension(filename);
   if (ext === ".pdf") {
     return extractTextFromPdf(data);
@@ -134,16 +136,21 @@ export function parseSections(text: string): Section[] {
 /** Render HTML slide strings to one PDF in the browser. */
 export async function renderSlidesToPdf(slideHtmls: string[]): Promise<Blob> {
   const iframe = document.createElement("iframe");
+  if (slideHtmls.length === 0 || slideHtmls.length > 30) throw new Error("A presentation must contain 1 to 30 slides.");
   iframe.setAttribute("aria-hidden", "true");
+  iframe.setAttribute("sandbox", "allow-same-origin");
   iframe.style.cssText = "position:fixed;left:-10000px;top:0;width:1280px;height:720px;border:0";
   document.body.appendChild(iframe);
 
   const merged = await PDFDocument.create();
   try {
     for (const html of slideHtmls) {
-      await new Promise<void>((resolve) => {
-        iframe.onload = () => resolve();
-        iframe.srcdoc = html;
+      const documentHtml = safeSlideDocument(html);
+      await new Promise<void>((resolve, reject) => {
+        const timer = window.setTimeout(() => reject(new Error("A slide took too long to render. Please try again.")), 15_000);
+        iframe.onload = () => { window.clearTimeout(timer); resolve(); };
+        iframe.onerror = () => { window.clearTimeout(timer); reject(new Error("A slide could not be loaded.")); };
+        iframe.srcdoc = documentHtml;
       });
       const body = iframe.contentDocument?.body;
       if (!body) {
@@ -178,6 +185,9 @@ export function parseSlidesOutput(raw: string): Slide[] {
   const parsed = parseModelObject(raw) as { slides?: Slide[] };
   if (!parsed.slides || !Array.isArray(parsed.slides)) {
     throw new Error("AI response did not contain a 'slides' array.");
+  }
+  if (!parsed.slides.length || parsed.slides.length > 30 || parsed.slides.some(slide => !slide || typeof slide.title !== "string" || typeof slide.html !== "string" || slide.html.length > 100_000)) {
+    throw new Error("The presentation response was incomplete or too large. Please try again.");
   }
   return parsed.slides;
 }
