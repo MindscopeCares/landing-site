@@ -35,3 +35,14 @@ class ReleaseTests(unittest.TestCase):
         policy = load("release_policy")
         with patch.dict(os.environ, {}, clear=True), self.assertRaises(SystemExit):
             policy.commits_in_range("abc")
+
+    def test_latest_ci_failure_cannot_be_hidden_by_an_older_success(self):
+        policy = load("release_policy")
+        pr = {"number": 1, "merged_at": "now", "head": {"sha": "abc"}, "base": {"ref": "main"}, "merge_commit_sha": "abc"}
+        with patch.object(policy, "gh", side_effect=[[pr], {"check_runs": [{"id": 2, "conclusion": "failure"}, {"id": 1, "conclusion": "success"}]}]):
+            self.assertIn("ci-ok", policy.check_commit("org/repo", "abc", False)[0])
+
+    def test_monitoring_outage_fails_the_canary_gate(self):
+        gate = load("canary_gate")
+        with patch.object(gate.sys, "argv", ["canary_gate", "--project", "project", "--service", "service", "--revision", "candidate", "--probe-url", "https://preview.invalid", "--minutes", "0"]), patch.object(gate, "probe", return_value=(True, "ok")), patch.object(gate.time, "sleep"), patch.object(gate, "request_counts", side_effect=OSError("monitoring offline")):
+            self.assertEqual(gate.main(), 1)

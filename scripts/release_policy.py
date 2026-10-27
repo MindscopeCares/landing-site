@@ -75,14 +75,15 @@ def check_commit(repo: str, sha: str, require_approval: bool) -> list[str]:
     num = pr["number"]
     head = pr["head"]["sha"]
     runs = gh(f"repos/{repo}/commits/{head}/check-runs?check_name=ci-ok&per_page=20")
-    conclusions = {r["conclusion"] for r in (runs or {}).get("check_runs", [])}
-    if "success" not in conclusions:
+    checks = (runs or {}).get("check_runs", [])
+    latest_ci = max(checks, key=lambda run: run.get("id", 0), default=None)
+    if latest_ci is None or latest_ci["conclusion"] != "success":
         problems.append(f"{sha[:7]} (PR #{num}): merged without a passing ci-ok check")
     if require_approval:
         # The approval-gate workflow encodes who must approve (REQUIRED_REVIEWERS);
         # its latest run on the merged head must have passed.
         gate = gh(f"repos/{repo}/commits/{head}/check-runs?check_name=approval-gate&per_page=50")
-        runs = sorted((gate or {}).get("check_runs", []), key=lambda r: r.get("completed_at") or "")
+        runs = sorted((gate or {}).get("check_runs", []), key=lambda r: r.get("id", 0))
         if (not runs or runs[-1]["conclusion"] != "success") and not approved_after_merge(repo, num):
             problems.append(
                 f"{sha[:7]} (PR #{num}): merged without the required approval (approval-gate). "
