@@ -24,6 +24,7 @@ export async function processFeature(feature: ProcessFeature, content: string): 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ feature, content }),
+    signal: AbortSignal.timeout(90_000),
   });
 
   const text = await response.text();

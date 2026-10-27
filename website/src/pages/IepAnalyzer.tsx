@@ -76,7 +76,8 @@ export default function IepAnalyzer() {
   const [error, setError] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
-    if (!file) return;
+    if (!file || loading) return;
+    if (file.size > 10 * 1024 * 1024) { setError("Choose a file smaller than 10 MB."); return; }
     setLoading(true);
     setError(null);
     setResult(null);
@@ -103,6 +104,11 @@ export default function IepAnalyzer() {
       title="IEP Analyzer"
       description="Upload an IEP as a PDF, Word document, or plain text. You'll see a score for each section, what to ask about, and a plain-language summary of your rights."
     >
+      <p role="note" className="text-sm mb-5" style={{ color: "var(--muted-foreground)" }}>
+        This public tool sends extracted document text to our AI processing service. Use a de-identified copy:
+        remove names, student IDs, addresses, birth dates, and other identifying details before uploading.
+        AI output may be incomplete or incorrect; review it with your school team.
+      </p>
       <FormCard>
         <label
           className="flex flex-col items-center justify-center gap-3 w-full py-14 rounded-lg border-2 border-dashed cursor-pointer mb-5"
@@ -115,7 +121,7 @@ export default function IepAnalyzer() {
           >
             Choose file
           </span>
-          <span className="text-xs">PDF, DOCX, or TXT</span>
+          <span className="text-xs">PDF, DOCX, or TXT · up to 10 MB</span>
           <input
             type="file"
             accept=".pdf,.docx,.txt,application/pdf,text/plain"

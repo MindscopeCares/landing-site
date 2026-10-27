@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { processFeature } from "../lib/aiClient";
 import {
   extractTextFromFile,
@@ -15,8 +15,11 @@ export default function ResearchTool() {
   const [error, setError] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
+  useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
+
   const handleConvert = async () => {
-    if (!file && !url.trim()) return;
+    if (loading || (!file && !url.trim())) return;
+    if (file && file.size > 10 * 1024 * 1024) { setError("Choose a file smaller than 10 MB."); return; }
     setLoading(true);
     setError(null);
     setPdfUrl(null);
@@ -53,7 +56,7 @@ export default function ResearchTool() {
     <ToolPage
       current="/parents/research"
       eyebrow="Disability research, made simple"
-      title="Research to PowerPoint"
+      title="Research to Presentation"
       description="Upload a disability research paper or paste a link. We'll convert it into a clear, plain language presentation you can share with teachers, doctors, or family members."
     >
       <FormCard>
@@ -61,7 +64,7 @@ export default function ResearchTool() {
           className="flex flex-col items-center justify-center gap-3 w-full py-14 rounded-lg border-2 border-dashed cursor-pointer"
           style={{ borderColor: "var(--border)", backgroundColor: "var(--background)", color: "var(--muted-foreground)" }}
         >
-          <span className="text-sm">{file ? file.name : "Choose a PDF, or drop it here"}</span>
+          <span className="text-sm">{file ? file.name : "Choose a PDF, Word document, or text file"}</span>
           <span
             className="px-4 py-2 rounded-lg text-sm font-semibold"
             style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", color: "var(--primary)" }}
