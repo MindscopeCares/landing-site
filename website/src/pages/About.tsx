@@ -16,7 +16,7 @@ const founders: Founder[] = [
   {
     role: "CEO",
     name: "Ahmed Kiel-Kamil",
-    job: "Amazon Logistics Specialist",
+    job: "Logistics Specialist @ Amazon",
     photo: ahmed,
     position: "center 20%",
     zoom: "",
@@ -24,7 +24,7 @@ const founders: Founder[] = [
   {
     role: "CTO",
     name: "Aren Egwuekwe",
-    job: "Google Software Engineer",
+    job: "Software Engineer @ Google",
     photo: aren,
     position: "center 18%",
     zoom: "",
@@ -32,7 +32,7 @@ const founders: Founder[] = [
   {
     role: "CFO",
     name: "Isaiah Johnson",
-    job: "John Hopkins Masters Student",
+    job: "Masters Student @ Babson College",
     photo: isaiah,
     position: "center 22%",
     zoom: "",
@@ -40,7 +40,7 @@ const founders: Founder[] = [
   {
     role: "CXO",
     name: "Supreme Constantine",
-    job: "North Carolina State University Masters Student",
+    job: "Masters Student @ North Carolina State University",
     photo: supreme,
     position: "center 35%",
     zoom: "",
