@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 def load(name):
     spec = importlib.util.spec_from_file_location(name, Path(__file__).parents[1] / "scripts" / (name + ".py"))
@@ -30,6 +30,19 @@ class ReleaseTests(unittest.TestCase):
         gate = load("canary_gate")
         with patch.object(gate.urllib.request, "urlopen", side_effect=OSError("offline")):
             self.assertFalse(gate.probe("https://preview.invalid", "abc")[0])
+
+    def test_healthy_canary_passes_the_probe(self):
+        gate = load("canary_gate")
+        def response(body):
+            r = MagicMock(status=200)
+            r.read.return_value = body
+            r.__enter__.return_value = r
+            return r
+        with patch.dict(os.environ, {"VERSION_PATH": ""}), patch.object(gate.urllib.request, "urlopen", return_value=response(b'{"version": "abc1234"}')):
+            self.assertEqual(gate.probe("https://canary.invalid", "abc1234"), (True, "ok"))
+            self.assertFalse(gate.probe("https://canary.invalid", "other")[0])
+        with patch.dict(os.environ, {"VERSION_PATH": "/version.txt"}), patch.object(gate.urllib.request, "urlopen", side_effect=[response(b"ok\n"), response(b"abc1234\n")]):
+            self.assertEqual(gate.probe("https://canary.invalid", "abc1234"), (True, "ok"))
 
     def test_first_release_fails_without_a_deployed_baseline(self):
         policy = load("release_policy")
