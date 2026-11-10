@@ -1,6 +1,8 @@
 import { PROCESS_URL } from "./siteConfig";
 
 function processEndpoint(): string {
+  // Dev: Vite proxies /api/process → Cloud Run /
+  // Prod: call Cloud Run directly (CORS enabled on the function)
   if (import.meta.env.DEV) {
     return "/api/process";
   }
@@ -18,7 +20,7 @@ function functionError(text: string): string {
 
 export type ProcessFeature = "iep-analyzer" | "research-to-pptx";
 
-/** Call the Azure Function POST /api/process for IEP analysis or slides. */
+/** Call the Cloud Run function for IEP analysis or research slides. */
 export async function processFeature(feature: ProcessFeature, content: string): Promise<string> {
   const response = await fetch(processEndpoint(), {
     method: "POST",
@@ -37,7 +39,7 @@ export async function processFeature(feature: ProcessFeature, content: string): 
     throw new Error(errorMessage);
   }
   if (!text.trim()) {
-    throw new Error("The Azure Function returned an empty response.");
+    throw new Error("The MindScope function returned an empty response.");
   }
   return text;
 }
@@ -46,5 +48,5 @@ export async function processFeature(feature: ProcessFeature, content: string): 
 export async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   void systemPrompt;
   void userPrompt;
-  throw new Error("Facility search is not on the Azure Function yet.");
+  throw new Error("Facility search is not wired yet.");
 }

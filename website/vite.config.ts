@@ -7,9 +7,11 @@ export default defineConfig({
   server: {
     proxy: {
       "/api/process": {
-        target: "https://aicall-eegeakahgvhrb3dy.westus2-01.azurewebsites.net",
+        target: "https://disabilityai-855875950632.us-east1.run.app",
         changeOrigin: true,
         secure: true,
+        // Cloud Run serves POST / ; local app still calls /api/process
+        rewrite: (path) => path.replace(/^\/api\/process/, "/"),
       },
     },
   },
