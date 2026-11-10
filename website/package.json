@@ -12,7 +12,7 @@
     "test": "tsc --ignoreConfig src/lib/safeSlide.ts --outDir .test-build --target ES2022 --module node16 --moduleResolution node16 --esModuleInterop --skipLibCheck && node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.3.3",
+    "@tailwindcss/vite": "^4.3.4",
     "dompurify": "3.4.17",
     "html2canvas": "^1.4.1",
     "jsonrepair": "^3.15.0",
@@ -30,14 +30,14 @@
     "@types/node": "^24.19.2",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
-    "@vitejs/plugin-react": "^6.1.2",
-    "eslint": "^10.13.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "eslint": "^10.14.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.6",
-    "globals": "^17.13.0",
+    "globals": "^17.14.0",
     "jsdom": "25.0.1",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.72.1",
-    "vite": "^8.3.5"
+    "vite": "^8.3.6"
   }
 }
