@@ -48,7 +48,7 @@ def probe(url: str, expect_version: str) -> tuple[bool, str]:
             version = str(json.loads(raw).get("version", ""))
         if expect_version and version != expect_version:
             return False, f"version {version!r} != {expect_version!r}"
-            return True, "ok"
+        return True, "ok"
     except Exception as e:  # noqa: BLE001
         return False, str(e)[:200]
 
