@@ -32,7 +32,7 @@ const founders: Founder[] = [
   {
     role: "CFO",
     name: "Isaiah Johnson",
-    job: "Babson College Masters Student",
+    job: "Business Analytics at Babson College",
     photo: isaiah,
     position: "center 22%",
     zoom: "",

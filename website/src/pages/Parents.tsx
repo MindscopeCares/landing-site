@@ -51,7 +51,6 @@ const tools = [
       </svg>
     ),
     to: "/parents/facilities",
-    comingSoon: true,
   },
   {
     id: "iep",
