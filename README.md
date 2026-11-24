@@ -2,7 +2,8 @@
 
 The public site at **https://mindscopecares.com**. `www.mindscopecares.com`
 redirects there. It's a React + Vite single-page app in `website/`, hosted on
-**Firebase Hosting** (Firebase project `carepa-th`, site `mindscopecares`).
+**Firebase Hosting** in the Google Cloud project `mindscope-prod` (site
+`mindscope-prod`, also reachable at https://mindscope-prod.web.app).
 
 ## Develop
 
@@ -26,7 +27,11 @@ The AI features (IEP analyzer, research-to-slides) call the service set in
 4. Squash-merge. "Deploy to Firebase Hosting on merge" builds and publishes it
    to mindscopecares.com, usually within about 2 minutes.
 
-**Roll back:** Firebase console → Hosting → *mindscopecares* → Release history →
+Deploys authenticate with GitHub's OIDC token through Workload Identity
+Federation (repo variables `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA`); there is no
+service-account key anywhere.
+
+**Roll back:** Firebase console → Hosting → *mindscope-prod* → Release history →
 pick an earlier release → **Roll back**. Or re-run an earlier successful
 "Deploy to Firebase Hosting on merge" run.
 
