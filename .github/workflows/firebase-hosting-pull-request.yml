@@ -36,7 +36,7 @@ jobs:
         working-directory: website
         run: |
           npx --yes "$FIREBASE_TOOLS" hosting:channel:deploy "pr-${{ github.event.pull_request.number }}" \
-            --only mindscopecares --project mindscope-prod --expires 7d --non-interactive --json > /tmp/preview.json
+            --only mindscopecares --project mindscope-prod --expires 7d --non-interactive --json > /tmp/preview.json || { cat /tmp/preview.json; exit 1; }
           url=$(python3 -c "import json; r=json.load(open('/tmp/preview.json'))['result']; print(next(iter(r.values()))['url'])")
           echo "url=$url" >> "$GITHUB_OUTPUT"
       - name: Comment the preview URL
