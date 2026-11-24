@@ -1,15 +1,12 @@
 {
   "projects": {
-    "default": "carepa-th"
+    "default": "mindscope-prod"
   },
   "targets": {
-    "carepa-th": {
+    "mindscope-prod": {
       "hosting": {
         "mindscopecares": [
-          "mindscopecares"
-        ],
-        "legacy": [
-          "carepa-th"
+          "mindscope-prod"
         ]
       }
     }

@@ -63,22 +63,6 @@
           ]
         }
       ]
-    },
-    {
-      "target": "legacy",
-      "public": "legacy-redirect",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "redirects": [
-        {
-          "source": "**",
-          "destination": "https://mindscopecares.web.app",
-          "type": 301
-        }
-      ]
     }
   ]
 }
