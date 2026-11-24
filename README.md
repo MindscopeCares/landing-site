@@ -16,7 +16,12 @@ npm run dev        # http://localhost:5173
 Node 22+ is required (Vite 8).
 
 The AI features (IEP analyzer, research-to-slides) call the service set in
-`website/src/lib/siteConfig.ts` (`PROCESS_URL`).
+`website/src/lib/siteConfig.ts` (`PROCESS_URL`): Cloud Run `disabilityai` in
+mindscope-prod, whose code lives in MindscopeCares/disability-ai.
+
+Place search uses `VITE_GOOGLE_PLACES_API_KEY`. Builds on GitHub read it from
+the repo secret of that name (a browser key restricted to this site's
+referrers and the Places API). Locally, put it in `website/.env`.
 
 ## Ship a change
 

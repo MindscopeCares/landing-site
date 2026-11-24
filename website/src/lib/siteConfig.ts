@@ -1,6 +1,6 @@
 /** Public site settings. Swap these when the domain and inbox are ready. */
 export const PROCESS_URL =
-  "https://disabilityai-855875950632.us-east1.run.app";
+  "https://disabilityai-223088873408.us-central1.run.app";
 export const CONTACT_EMAIL = "contact@mindscopecares.com";
 
 export const TAVILY_API_KEY = "";

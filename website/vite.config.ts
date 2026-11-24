@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api/process": {
-        target: "https://disabilityai-855875950632.us-east1.run.app",
+        target: "https://disabilityai-223088873408.us-central1.run.app",
         changeOrigin: true,
         secure: true,
         // Cloud Run serves POST / ; local app still calls /api/process
