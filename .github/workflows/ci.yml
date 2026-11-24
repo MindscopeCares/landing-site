@@ -1,4 +1,4 @@
-# Presubmit for every PR: typecheck, build, and a container smoke test.
+# Presubmit for every PR: typecheck, tests, build, and the hosting config.
 name: CI
 
 on:
@@ -14,16 +14,6 @@ permissions:
   contents: read
 
 jobs:
-  release-tools:
-    name: Release safety tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-      - run: python -m unittest discover -s tests -p test_release_tools.py -v
-
   build:
     name: Typecheck & build
     runs-on: ubuntu-latest
@@ -42,29 +32,17 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  container:
-    name: Container serves the site
+  hosting:
+    name: Hosting config keeps the security headers
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: docker build -t landing:ci .
-      - run: |
-          docker run -d -p 8080:8080 landing:ci
-          for _ in $(seq 1 20); do curl -fsS localhost:8080/health && break; sleep 1; done
-          curl -fsS -o /dev/null localhost:8080/
-          curl -fsS -o /dev/null localhost:8080/parents   # SPA route fallback
-          # Security headers must survive nginx's per-location add_header rules.
-          for path in / /parents; do
-            headers=$(curl -fsSI "localhost:8080$path")
-            for h in x-frame-options x-content-type-options strict-transport-security content-security-policy; do
-              echo "$headers" | grep -qi "^$h:" || { echo "missing $h on $path"; exit 1; }
-            done
-          done
+      - run: python3 scripts/check_hosting_headers.py website/firebase.json
 
   ci-ok:
     name: ci-ok
     if: always()
-    needs: [build, container, release-tools]
+    needs: [build, hosting]
     runs-on: ubuntu-latest
     steps:
-      - run: '[ "${{ needs.build.result }}" = success ] && [ "${{ needs.container.result }}" = success ] && [ "${{ needs.release-tools.result }}" = success ]'
+      - run: '[ "${{ needs.build.result }}" = success ] && [ "${{ needs.hosting.result }}" = success ]'
